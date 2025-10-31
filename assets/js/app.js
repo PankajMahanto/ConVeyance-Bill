@@ -38,9 +38,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const BILLS_STORAGE_KEY = 'conveyanceBills';
     const COMPANY_STORAGE_KEY = 'companyName';
     const REPORTS_STORAGE_KEY = 'finalizedReports';
+    const ADVANCE_STORAGE_KEY = 'advancePayment';
     let bills = [];
     let reports = [];
     let companyName = '';
+    let advancePayment = 0;
 
     // --- Modal Functions ---
 
@@ -166,11 +168,33 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        reportModalTitle.textContent = `Report for: ${report.day}`;
-        document.getElementById('report-modal-subtitle').textContent =
-            `${report.companyName} | Total: ${parseFloat(report.total).toFixed(2)} Tk. | ${report.bills.length} Entries`;
+        const totalAmount = parseFloat(report.total);
+        // Use the report's saved advance payment if available, otherwise use the current advance payment
+        const reportAdvancePayment = report.advancePayment !== undefined ? report.advancePayment : advancePayment;
+        const remainingBalance = reportAdvancePayment > 0 ? reportAdvancePayment - totalAmount : 0;
 
-        let tableHtml = `
+        reportModalTitle.textContent = `Report for: ${report.day}`;
+        document.getElementById('report-modal-subtitle').textContent = `${report.companyName} | ${report.bills.length} Entries`;
+
+        // Add financial summary at the top
+        const summaryHtml = `
+            <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <div class="text-sm text-gray-500">Total Expenses</div>
+                    <div class="text-lg font-bold text-gray-900">${totalAmount.toFixed(2)} Tk.</div>
+                </div>
+                ${reportAdvancePayment > 0 ? `
+                    <div class="p-4 bg-green-50 rounded-lg">
+                        <div class="text-sm text-green-600">Advance Payment</div>
+                        <div class="text-lg font-bold text-green-700">${reportAdvancePayment.toFixed(2)} Tk.</div>
+                    </div>
+                    <div class="p-4 ${remainingBalance >= 0 ? 'bg-blue-50' : 'bg-red-50'} rounded-lg">
+                        <div class="text-sm ${remainingBalance >= 0 ? 'text-blue-600' : 'text-red-600'}">Remaining Balance</div>
+                        <div class="text-lg font-bold ${remainingBalance >= 0 ? 'text-blue-700' : 'text-red-700'}">${remainingBalance.toFixed(2)} Tk.</div>
+                    </div>
+                ` : ''}</div>`;
+
+        let tableHtml = summaryHtml + `
             <div class="overflow-x-auto border rounded-lg">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -262,6 +286,63 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     companyNameInput.addEventListener('input', saveCompanyName);
 
+    // Advance Payment Modal Functions
+    const advanceModal = document.getElementById('advance-modal');
+    const advanceForm = document.getElementById('advance-form');
+    const modalAdvanceAmount = document.getElementById('modal-advance-amount');
+    const setAdvanceBtn = document.getElementById('set-advance-btn');
+    const advanceModalClose = document.getElementById('advance-modal-close');
+    const advanceModalCancel = document.getElementById('advance-modal-cancel');
+
+    const showAdvanceModal = () => {
+        modalAdvanceAmount.value = advancePayment || '';
+        advanceModal.classList.remove('hidden');
+        modalAdvanceAmount.focus();
+    };
+
+    const hideAdvanceModal = () => {
+        advanceModal.classList.add('hidden');
+        advanceForm.reset();
+    };
+
+    const loadAdvancePayment = () => {
+        advancePayment = parseFloat(localStorage.getItem(ADVANCE_STORAGE_KEY) || '0');
+        updateTotal();
+    };
+
+    const saveAdvancePayment = (e) => {
+        e.preventDefault();
+        const newAdvance = parseFloat(modalAdvanceAmount.value || '0');
+        if (newAdvance >= 0) {
+            advancePayment = newAdvance;
+            localStorage.setItem(ADVANCE_STORAGE_KEY, advancePayment.toString());
+            updateTotal();
+            hideAdvanceModal();
+            showModal(
+                'Success',
+                `Advance payment of ${advancePayment.toFixed(2)} Tk. has been saved.\n` +
+                (advancePayment > 0 ? `You can see the remaining balance in the table summary below.` : ''),
+                'success'
+            );
+        } else {
+            showModal(
+                'Error',
+                'Please enter a valid advance payment amount.',
+                'error'
+            );
+        }
+    };
+
+    setAdvanceBtn.addEventListener('click', showAdvanceModal);
+    advanceModalClose.addEventListener('click', hideAdvanceModal);
+    advanceModalCancel.addEventListener('click', hideAdvanceModal);
+    advanceForm.addEventListener('submit', saveAdvancePayment);
+    advanceModal.addEventListener('click', (e) => {
+        if (e.target === advanceModal) {
+            hideAdvanceModal();
+        }
+    });
+
     const sortBills = () => {
         bills.sort((a, b) => {
             const dateA = new Date(a.day);
@@ -283,6 +364,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateTotal = () => {
         const total = bills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
         totalAmountCell.textContent = total.toFixed(2);
+
+        // Show/hide and update advance payment and balance rows
+        const advanceRow = document.getElementById('advance-row');
+        const balanceRow = document.getElementById('balance-row');
+        const advanceAmountCell = document.getElementById('advance-amount');
+        const balanceAmountCell = document.getElementById('balance-amount');
+
+        if (advancePayment > 0) {
+            // Show advance payment row
+            advanceRow.classList.remove('hidden');
+            advanceAmountCell.textContent = advancePayment.toFixed(2);
+
+            // Show balance row
+            balanceRow.classList.remove('hidden');
+            const remainingBalance = advancePayment - total;
+            balanceAmountCell.textContent = remainingBalance.toFixed(2);
+
+            // Update color based on remaining balance
+            if (remainingBalance < 0) {
+                balanceAmountCell.classList.remove('text-blue-700');
+                balanceAmountCell.classList.add('text-red-700');
+            } else {
+                balanceAmountCell.classList.remove('text-red-700');
+                balanceAmountCell.classList.add('text-blue-700');
+            }
+        } else {
+            // Hide rows if no advance payment
+            advanceRow.classList.add('hidden');
+            balanceRow.classList.add('hidden');
+        }
     };
 
     const renderBills = () => {
@@ -320,7 +431,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const updateReportFinancials = (report) => {
+        if (!report) return;
+        report.total = report.bills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
+        if (report.advancePayment !== undefined) {
+            report.remainingBalance = report.advancePayment - report.total;
+        }
+    };
+
     const saveFinalizedReports = () => {
+        // Update financials for all reports before saving
+        reports.forEach(updateReportFinancials);
         localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(reports));
     };
 
@@ -337,7 +458,12 @@ document.addEventListener('DOMContentLoaded', () => {
             item.innerHTML = `
                 <div>
                     <p class="font-medium text-gray-800">${report.day}</p>
-                    <p class="text-sm text-gray-500">Total: ${parseFloat(report.total).toFixed(2)} Tk. (${report.bills.length} entries)</p>
+                    <p class="text-sm text-gray-500">
+                        Total: ${parseFloat(report.total).toFixed(2)} Tk. (${report.bills.length} entries)
+                        ${report.advancePayment > 0 ?
+                    `| Advance: ${report.advancePayment.toFixed(2)} Tk. | Remaining: ${report.remainingBalance.toFixed(2)} Tk.`
+                    : ''}
+                    </p>
                 </div>
                 <div class="space-x-2 flex">
                     <button class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-3 rounded-md view-report-btn" data-day="${report.day}">
@@ -388,6 +514,9 @@ document.addEventListener('DOMContentLoaded', () => {
             showModal("Error", "Report not found for editing.");
             return;
         }
+
+        // Store the report's advance payment before editing
+        const storedAdvancePayment = reportToEdit.advancePayment;
 
         const reportDetailsModal = document.getElementById('report-details-modal');
         const reportModalBody = document.getElementById('report-modal-body');
@@ -466,7 +595,10 @@ document.addEventListener('DOMContentLoaded', () => {
             editingBills = selectedIndices.map(index => ({ ...reportToEdit.bills[index] }));
             reportToEdit.bills = reportToEdit.bills.filter((_, index) => !selectedIndices.includes(index));
 
+            // Recalculate total and financial summary
             reportToEdit.total = reportToEdit.bills.reduce((sum, bill) => sum + parseFloat(bill.amount), 0);
+            reportToEdit.advancePayment = storedAdvancePayment; // Maintain the original advance payment
+            reportToEdit.remainingBalance = storedAdvancePayment - reportToEdit.total;
 
             if (reportToEdit.bills.length === 0) {
                 reports = reports.filter(r => r.day !== day);
@@ -545,15 +677,25 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const originalDay = bills[billIndex].day;
+        const newDay = editDay.value;
+
         bills[billIndex] = {
             id: editBillId.value,
-            day: editDay.value,
+            day: newDay,
             time: editTime.value || '',
             from: editFrom.value.trim(),
             to: editTo.value.trim(),
             transport: editTransport.value.trim(),
             amount: updatedAmount
         };
+
+        // If the day has changed and there's a finalized report for either day,
+        // we need to update the financial summaries
+        const originalReport = reports.find(r => r.day === originalDay);
+        const newReport = reports.find(r => r.day === newDay);
+        if (originalReport) updateReportFinancials(originalReport);
+        if (newReport) updateReportFinancials(newReport);
 
         hideEditBillModal();
         renderBills();
@@ -696,6 +838,10 @@ document.addEventListener('DOMContentLoaded', () => {
             parseFloat(bill.amount).toFixed(2)
         ]);
 
+        // Calculate totals
+        const totalExpenses = dataToExport.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
+        const remainingBalance = advancePayment > 0 ? advancePayment - totalExpenses : 0;
+
         const total = dataToExport.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
 
         doc.setFontSize(18);
@@ -712,7 +858,11 @@ document.addEventListener('DOMContentLoaded', () => {
             startY: subtitle ? 35 : 30,
             headStyles: { fillColor: [37, 99, 235] },
             foot: [
-                ['', '', '', '', 'Total', total.toFixed(2)]
+                ['', '', '', '', 'Total Expenses', totalExpenses.toFixed(2)],
+                ...(advancePayment > 0 ? [
+                    ['', '', '', '', 'Advance Payment', advancePayment.toFixed(2)],
+                    ['', '', '', '', 'Remaining Balance', remainingBalance.toFixed(2)]
+                ] : [])
             ],
             footStyles: {
                 fillColor: [229, 231, 235],
@@ -757,8 +907,15 @@ document.addEventListener('DOMContentLoaded', () => {
             csvContent += row + "\n";
         });
 
-        const total = dataToExport.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
-        csvContent += `\n,,,,Total,${total.toFixed(2)}\n`;
+        // Add financial summary
+        const totalExpenses = dataToExport.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
+        csvContent += `\n,,,,Total Expenses,${totalExpenses.toFixed(2)}\n`;
+
+        if (advancePayment > 0) {
+            const remainingBalance = advancePayment - totalExpenses;
+            csvContent += `,,,,Advance Payment,${advancePayment.toFixed(2)}\n`;
+            csvContent += `,,,,Remaining Balance,${remainingBalance.toFixed(2)}\n`;
+        }
 
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
@@ -791,16 +948,24 @@ document.addEventListener('DOMContentLoaded', () => {
         let existingReport = reports.find(r => r.day === today);
 
         if (existingReport) {
+            // Keep the original advance payment if it exists
+            const reportAdvancePayment = existingReport.advancePayment !== undefined ?
+                existingReport.advancePayment : advancePayment;
+
             existingReport.bills.push(...todayBills);
             existingReport.total = existingReport.bills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
             existingReport.companyName = companyName.trim();
+            existingReport.advancePayment = reportAdvancePayment;
+            existingReport.remainingBalance = reportAdvancePayment - existingReport.total;
         } else {
             const total = todayBills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
             const newReport = {
                 day: today,
                 companyName: companyName.trim(),
                 bills: todayBills,
-                total: total
+                total: total,
+                advancePayment: advancePayment,
+                remainingBalance: advancePayment > 0 ? advancePayment - total : 0
             };
             reports.unshift(newReport);
         }

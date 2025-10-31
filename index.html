@@ -27,9 +27,22 @@
 
         <!-- Company Name Input -->
         <div class="p-4 md:p-6 border-b border-gray-200 bg-blue-50">
-            <label for="company-name" class="block text-sm font-medium text-gray-700">Company Name</label>
-            <input type="text" id="company-name" name="company-name" placeholder="Enter your company name for reports"
-                class="mt-1 block w-full md:w-1/2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            <div class="flex justify-between items-center">
+                <div class="flex-1">
+                    <label for="company-name" class="block text-sm font-medium text-gray-700">Company Name</label>
+                    <input type="text" id="company-name" name="company-name"
+                        placeholder="Enter your company name for reports"
+                        class="mt-1 block w-full md:w-1/2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <button id="set-advance-btn" type="button"
+                    class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md shadow transition duration-150 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Set Advance Payment
+                </button>
+            </div>
         </div>
 
         <!-- Input Form -->
@@ -127,14 +140,30 @@
                 <tbody id="bill-table-body" class="bg-white divide-y divide-gray-200">
                     <!-- Rows will be dynamically inserted here by JavaScript -->
                 </tbody>
-                <tfoot class="bg-gray-200">
+                <tfoot class="bg-gray-100 divide-y divide-gray-200">
                     <tr>
                         <td colspan="5"
-                            class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-700 uppercase">
-                            Total</td>
+                            class="px-6 py-3 whitespace-nowrap text-right text-sm font-bold text-gray-700 uppercase">
+                            Total Expenses</td>
                         <td id="total-amount"
-                            class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-900">0.00</td>
-                        <td class="px-6 py-4"></td>
+                            class="px-6 py-3 whitespace-nowrap text-right text-sm font-bold text-gray-900">0.00</td>
+                        <td class="px-6 py-3"></td>
+                    </tr>
+                    <tr id="advance-row" class="bg-green-50 hidden">
+                        <td colspan="5"
+                            class="px-6 py-3 whitespace-nowrap text-right text-sm font-bold text-green-700 uppercase">
+                            Advance Payment</td>
+                        <td id="advance-amount"
+                            class="px-6 py-3 whitespace-nowrap text-right text-sm font-bold text-green-700">0.00</td>
+                        <td class="px-6 py-3"></td>
+                    </tr>
+                    <tr id="balance-row" class="bg-blue-50 hidden">
+                        <td colspan="5"
+                            class="px-6 py-3 whitespace-nowrap text-right text-sm font-bold text-blue-700 uppercase">
+                            Remaining Balance</td>
+                        <td id="balance-amount"
+                            class="px-6 py-3 whitespace-nowrap text-right text-sm font-bold text-blue-700">0.00</td>
+                        <td class="px-6 py-3"></td>
                     </tr>
                 </tfoot>
             </table>
@@ -273,6 +302,44 @@
                 </button>
             </div>
             <div id="report-modal-body" class="p-4 md:p-6 max-h-[70vh] overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <!-- Advance Payment Modal -->
+    <div id="advance-modal"
+        class="custom-modal hidden fixed inset-0 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div class="modal-content bg-white w-full max-w-md mx-auto rounded-xl shadow-2xl p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-xl font-bold text-gray-900">Set Advance Payment</h3>
+                <button id="advance-modal-close"
+                    class="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded-full hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <form id="advance-form" class="space-y-4">
+                <div>
+                    <label for="modal-advance-amount" class="block text-sm font-medium text-gray-700">
+                        Enter Advance Amount (Tk.)
+                    </label>
+                    <input type="number" id="modal-advance-amount" min="0" step="0.01" placeholder="0.00"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        required>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" id="advance-modal-cancel"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                        class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors duration-200">
+                        Save Advance
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
