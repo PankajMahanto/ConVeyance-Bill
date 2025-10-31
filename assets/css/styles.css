@@ -1,0 +1,67 @@
+/* Custom font */
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Ensure number/time input controls are visible */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button,
+input[type=time]::-webkit-calendar-picker-indicator {
+  opacity: 1;
+}
+
+/* Enhanced modal styles */
+.custom-modal {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.custom-modal.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.95);
+}
+
+.custom-modal:not(.hidden) {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Modal backdrop blur effect */
+.custom-modal::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  z-index: -1;
+}
+
+/* Modal content animation */
+.modal-content {
+  transform: translateY(0);
+  transition: transform 0.3s ease;
+}
+
+.hidden .modal-content {
+  transform: translateY(-20px);
+}
+
+/* Custom scrollbar for modal content */
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}

@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conveyance Bill Tracker (Final Version)</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load jsPDF and jsPDF-AutoTable for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        /* Custom font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Ensure number/time input controls are visible */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=time]::-webkit-calendar-picker-indicator {
+            opacity: 1;
+        }
+
+        /* No longer needed - using modal for editing */
+
+        /* Enhanced modal styles */
+        .custom-modal {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .custom-modal.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
+        }
+
+        .custom-modal:not(.hidden) {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Modal backdrop blur effect */
+        .custom-modal::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+            z-index: -1;
+        }
+
+        /* Modal content animation */
+        .modal-content {
+            transform: translateY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .hidden .modal-content {
+            transform: translateY(-20px);
+        }
+
+        /* Custom scrollbar for modal content */
+        .modal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 p-2 md:p-8">
+
+    <div class="max-w-6xl mx-auto bg-white rounded-lg shadow-xl overflow-hidden">
+
+        <!-- Header -->
+        <div class="p-4 md:p-6 bg-blue-600">
+            <h1 class="text-xl md:text-2xl font-bold text-white">Conveyance Bill Tracker</h1>
+            <p class="text-xs text-blue-200 mt-1">Data automatically saves in your browser.</p>
+        </div>
+
+        <!-- Company Name Input -->
+        <div class="p-4 md:p-6 border-b border-gray-200 bg-blue-50">
+            <label for="company-name" class="block text-sm font-medium text-gray-700">Company Name</label>
+            <input type="text" id="company-name" name="company-name" placeholder="Enter your company name for reports"
+                class="mt-1 block w-full md:w-1/2 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+        </div>
+
+        <!-- Input Form -->
+        <form id="bill-form"
+            class="p-4 md:p-6 border-b border-gray-200 grid grid-cols-2 md:grid-cols-6 gap-3 md:gap-4 items-end">
+            <!-- Day Field -->
+            <div class="col-span-1">
+                <label for="day" class="block text-sm font-medium text-gray-700">Day</label>
+                <input type="date" id="day" name="day"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required>
+            </div>
+            <!-- Time Field (Optional) -->
+            <div class="col-span-1">
+                <label for="time" class="block text-sm font-medium text-gray-700">Time (Opt.)</label>
+                <input type="time" id="time" name="time"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <!-- Item / From Field (Optional) -->
+            <div class="col-span-1">
+                <label for="from" class="block text-sm font-medium text-gray-700">Item / From</label>
+                <input type="text" id="from" name="from" placeholder="e.g., Home, Lunch"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <!-- Vendor / To Field (Optional) -->
+            <div class="col-span-1">
+                <label for="to" class="block text-sm font-medium text-gray-700">Vendor / To</label>
+                <input type="text" id="to" name="to" placeholder="e.g., Office, Canteen"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+            </div>
+            <!-- Category / Transport Field -->
+            <div class="col-span-1">
+                <label for="transport" class="block text-sm font-medium text-gray-700">Category</label>
+                <input type="text" id="transport" name="transport" placeholder="e.g., Bus, Food"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required>
+            </div>
+            <!-- Amount Field -->
+            <div class="col-span-1">
+                <label for="amount" class="block text-sm font-medium text-gray-700">Amount (Tk.)</label>
+                <input type="number" id="amount" name="amount" min="0" step="0.01" placeholder="0.00"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required>
+            </div>
+            <button type="submit"
+                class="col-span-2 md:col-span-6 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md shadow transition duration-150 ease-in-out">
+                Add Bill Entry
+            </button>
+        </form>
+
+        <!-- Download Buttons (Responsive Stack) -->
+        <div class="p-4 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row gap-2 justify-end">
+            <button id="finalize-day"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md shadow text-sm transition duration-150">
+                Finalize & Save Day's Report
+            </button>
+            <button id="download-csv"
+                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow text-sm transition duration-150">
+                Download All (CSV)
+            </button>
+            <button id="download-pdf"
+                class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md shadow text-sm transition duration-150">
+                Download All (PDF)
+            </button>
+        </div>
+
+        <!-- Bill Table (Wrapped for Horizontal Scroll on Mobile) -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[110px]">
+                            Day</th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[90px]">
+                            Time</th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
+                            Item / From</th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
+                            Vendor / To</th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
+                            Category</th>
+                        <th scope="col"
+                            class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
+                            Amount</th>
+                        <th scope="col"
+                            class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
+                            Action</th>
+                    </tr>
+                </thead>
+                <tbody id="bill-table-body" class="bg-white divide-y divide-gray-200">
+                    <!-- Rows will be dynamically inserted here by JavaScript -->
+                </tbody>
+                <tfoot class="bg-gray-200">
+                    <tr>
+                        <td colspan="5"
+                            class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-700 uppercase">
+                            Total</td>
+                        <td id="total-amount"
+                            class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-900">0.00</td>
+                        <td class="px-6 py-4"></td> <!-- Empty cell for action column -->
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- NEW: Finalized Reports Section -->
+        <div class="p-4 md:p-6 border-t border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">Finalized Daily Reports</h2>
+            <div id="finalized-reports-list" class="divide-y divide-gray-200">
+                <!-- Finalized reports will be listed here -->
+                <p class="text-sm text-gray-500" id="no-reports-message">No reports finalized yet.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Enhanced Modal for Alerts/Messages -->
+    <div id="app-modal"
+        class="custom-modal hidden fixed inset-0 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div class="modal-content bg-white w-full max-w-sm mx-auto rounded-xl shadow-2xl p-6">
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex items-center">
+                    <span id="modal-icon" class="mr-3 flex-shrink-0">
+                        <!-- Icons will be injected by JavaScript -->
+                    </span>
+                    <h3 id="modal-title" class="text-xl font-bold text-gray-900">Message</h3>
+                </div>
+                <button id="modal-close-btn"
+                    class="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded-full hover:bg-gray-100"
+                    title="Close" aria-label="Close dialog">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fill-rule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div id="modal-body" class="modal-body text-gray-600 mt-2 max-h-[60vh] overflow-y-auto">
+                <p>An unexpected error occurred.</p>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="modal-cancel-btn"
+                    class="hidden px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200">
+                    Cancel
+                </button>
+                <button id="modal-confirm-btn"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Bill Modal -->
+    <div id="edit-bill-modal"
+        class="custom-modal hidden fixed inset-0 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div class="modal-content bg-white w-full max-w-lg mx-auto rounded-xl shadow-2xl p-6">
+            <div class="flex justify-between items-start mb-6">
+                <h3 class="text-xl font-bold text-gray-900">Edit Bill Entry</h3>
+                <button id="edit-modal-close-btn"
+                    class="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded-full hover:bg-gray-100"
+                    title="Close" aria-label="Close edit dialog">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fill-rule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <form id="edit-bill-form" class="space-y-4">
+                <input type="hidden" id="edit-bill-id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-1">
+                        <label for="edit-day" class="block text-sm font-medium text-gray-700 mb-1">Day</label>
+                        <input type="date" id="edit-day" required
+                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="edit-time" class="block text-sm font-medium text-gray-700 mb-1">Time
+                            (Optional)</label>
+                        <input type="time" id="edit-time"
+                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="edit-from" class="block text-sm font-medium text-gray-700 mb-1">Item / From</label>
+                        <input type="text" id="edit-from" placeholder="e.g., Home, Lunch"
+                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="edit-to" class="block text-sm font-medium text-gray-700 mb-1">Vendor / To</label>
+                        <input type="text" id="edit-to" placeholder="e.g., Office, Canteen"
+                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="edit-transport"
+                            class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                        <input type="text" id="edit-transport" placeholder="e.g., Bus, Food" required
+                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="edit-amount" class="block text-sm font-medium text-gray-700 mb-1">Amount
+                            (Tk.)</label>
+                        <input type="number" id="edit-amount" min="0" step="0.01" placeholder="0.00" required
+                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                    <button type="button" id="edit-bill-cancel"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- NEW: Report Details Modal -->
+    <div id="report-details-modal"
+        class="custom-modal hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div
+            class="bg-white w-full max-w-2xl mx-auto rounded-xl shadow-2xl overflow-hidden transform scale-100 transition duration-300">
+            <div class="flex justify-between items-start p-4 md:p-6 border-b border-gray-200 bg-gray-50">
+                <div>
+                    <h3 id="report-modal-title" class="text-xl font-bold text-gray-800">Report Details</h3>
+                    <p id="report-modal-subtitle" class="mt-1 text-sm text-gray-600"></p>
+                </div>
+                <button id="report-modal-close-btn"
+                    class="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded-full hover:bg-gray-200"
+                    title="Close" aria-label="Close report details">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fill-rule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+            <div id="report-modal-body" class="p-4 md:p-6 max-h-[70vh] overflow-y-auto">
+                <!-- Details table will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Form elements
+            const billForm = document.getElementById('bill-form');
+            const dayInput = document.getElementById('day');
+            const timeInput = document.getElementById('time');
+            const fromInput = document.getElementById('from');
+            const toInput = document.getElementById('to');
+            const transportInput = document.getElementById('transport');
+            const amountInput = document.getElementById('amount');
+            const companyNameInput = document.getElementById('company-name');
+
+            // Table elements
+            const tableBody = document.getElementById('bill-table-body');
+            const totalAmountCell = document.getElementById('total-amount');
+
+            // Action buttons
+            const downloadCsvBtn = document.getElementById('download-csv');
+            const downloadPdfBtn = document.getElementById('download-pdf');
+            const finalizeDayBtn = document.getElementById('finalize-day');
+
+            // Alert Modal elements
+            const modal = document.getElementById('app-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+
+            // Report Details Modal elements
+            const reportModal = document.getElementById('report-details-modal');
+            const reportModalTitle = document.getElementById('report-modal-title');
+            const reportModalBody = document.getElementById('report-modal-body');
+            const reportModalCloseBtn = document.getElementById('report-modal-close-btn');
+
+            // Finalized Reports List elements
+            const finalizedReportsList = document.getElementById('finalized-reports-list');
+            const noReportsMessage = document.getElementById('no-reports-message');
+
+            // App state and storage keys
+            const BILLS_STORAGE_KEY = 'conveyanceBills';
+            const COMPANY_STORAGE_KEY = 'companyName';
+            const REPORTS_STORAGE_KEY = 'finalizedReports';
+            let bills = [];
+            let reports = [];
+            let companyName = '';
+
+            // --- Modal Functions ---
+
+            // Enhanced Modal Functions
+            const modalIcons = {
+                error: `<svg class="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                </svg>`,
+                success: `<svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>`,
+                warning: `<svg class="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>`,
+                info: `<svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>`
+            };
+
+            const showModal = (title, content, type = 'error', onOk = null) => {
+                const modalIcon = document.getElementById('modal-icon');
+                const confirmBtn = document.getElementById('modal-confirm-btn');
+                modalTitle.textContent = title;
+                modalIcon.innerHTML = modalIcons[type] || modalIcons.info;
+
+                // Apply color based on type
+                const colorClasses = {
+                    error: 'text-red-600',
+                    success: 'text-green-600',
+                    warning: 'text-yellow-600',
+                    info: 'text-blue-600'
+                };
+
+                modalTitle.className = `text-xl font-bold ${colorClasses[type] || colorClasses.info}`;
+
+                // Format content
+                modalBody.innerHTML = `<p class="text-gray-600 leading-relaxed">${content}</p>`;
+
+                // Setup OK button handler
+                confirmBtn.onclick = () => {
+                    hideModal();
+                    if (onOk) onOk();
+                };
+
+                // Show modal with animation
+                requestAnimationFrame(() => {
+                    modal.classList.remove('hidden');
+                    modal.querySelector('.modal-content').style.transform = 'translateY(0)';
+                });
+
+                // Focus the confirm button for keyboard accessibility
+                confirmBtn.focus();
+            };
+
+            // Show/Hide Confirmation Modal (Simple browser confirm is used below for table edits/removals)
+
+            const hideModal = () => {
+                // Add transition class
+                modal.classList.add('hidden');
+                modal.querySelector('.modal-content').style.transform = 'translateY(-20px)';
+
+                // Reset modal state
+                const cancelBtn = document.getElementById('modal-cancel-btn');
+                const confirmBtn = document.getElementById('modal-confirm-btn');
+
+                // Reset buttons
+                cancelBtn.classList.add('hidden');
+                confirmBtn.textContent = 'OK';
+
+                // Remove all click handlers
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+
+                // Clear content
+                modalBody.innerHTML = '';
+                modalTitle.textContent = '';
+            };
+
+            const showConfirmModal = (title, content, type = 'warning', onConfirm) => {
+                const cancelBtn = document.getElementById('modal-cancel-btn');
+                const confirmBtn = document.getElementById('modal-confirm-btn');
+                const modalIcon = document.getElementById('modal-icon');
+
+                // Show cancel button and update confirm button
+                cancelBtn.classList.remove('hidden');
+                confirmBtn.textContent = 'Confirm';
+                modalTitle.textContent = title;
+                modalIcon.innerHTML = modalIcons[type] || modalIcons.warning;
+
+                // Apply color based on type
+                const colorClasses = {
+                    error: 'text-red-600',
+                    success: 'text-green-600',
+                    warning: 'text-yellow-600',
+                    info: 'text-blue-600'
+                };
+                modalTitle.className = `text-xl font-bold ${colorClasses[type] || colorClasses.warning}`;
+
+                // Format content
+                modalBody.innerHTML = `<p class="text-gray-600 leading-relaxed">${content}</p>`;
+
+                // Clear any existing click handlers
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+
+                // Setup new handlers
+                confirmBtn.onclick = () => {
+                    hideModal();
+                    if (onConfirm) onConfirm();
+                };
+
+                cancelBtn.onclick = hideModal;
+
+                // Show modal with animation
+                requestAnimationFrame(() => {
+                    modal.classList.remove('hidden');
+                    modal.querySelector('.modal-content').style.transform = 'translateY(0)';
+                });
+
+                // Focus the confirm button for keyboard accessibility
+                confirmBtn.focus();
+            }; modalCloseBtn.addEventListener('click', hideModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    hideModal();
+                }
+            });
+
+            // Cancel button click handler
+            document.getElementById('modal-cancel-btn').addEventListener('click', hideModal);
+
+            // Show/Hide Report Details Modal
+            const showReportDetailsModal = (day) => {
+                const report = reports.find(r => r.day === day);
+                if (!report) {
+                    showModal("Error", "Could not find the selected report.");
+                    return;
+                }
+
+                // Update modal title and subtitle
+                reportModalTitle.textContent = `Report for: ${report.day}`;
+                document.getElementById('report-modal-subtitle').textContent =
+                    `${report.companyName} | Total: ${parseFloat(report.total).toFixed(2)} Tk. | ${report.bills.length} Entries`;
+
+                let tableHtml = `
+                    <div class="overflow-x-auto border rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item/From</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Vendor/To</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                `;
+
+                report.bills.forEach(bill => {
+                    tableHtml += `
+                        <tr>
+                            <td class="px-4 py-2 whitespace-nowrap text-sm">${bill.time || '---'}</td>
+                            <td class="px-4 py-2 whitespace-nowrap text-sm">${bill.from || '---'}</td>
+                            <td class="px-4 py-2 whitespace-nowrap text-sm">${bill.to || '---'}</td>
+                            <td class="px-4 py-2 whitespace-nowrap text-sm">${bill.transport}</td>
+                            <td class="px-4 py-2 whitespace-nowrap text-sm text-right">${parseFloat(bill.amount).toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHtml += `
+                            </tbody>
+                            <tfoot class="bg-gray-100">
+                                <tr>
+                                    <td colspan="4" class="px-4 py-2 text-right text-sm font-bold text-gray-700 uppercase">Total</td>
+                                    <td class="px-4 py-2 text-right text-sm font-bold text-gray-900">${parseFloat(report.total).toFixed(2)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                `;
+
+                // Add download buttons section
+                const downloadSection = `
+                    <div class="mt-6 flex justify-end gap-3 pt-4 border-t">
+                        <button class="download-report-csv px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors duration-200 flex items-center" data-day="${report.day}">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Download CSV
+                        </button>
+                        <button class="download-report-pdf px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors duration-200 flex items-center" data-day="${report.day}">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Download PDF
+                        </button>
+                    </div>
+                `;
+
+                reportModalBody.innerHTML = tableHtml + downloadSection;
+                reportModal.classList.remove('hidden');
+
+                // Add click handlers for download buttons
+                const downloadCsvBtn = reportModalBody.querySelector('.download-report-csv');
+                const downloadPdfBtn = reportModalBody.querySelector('.download-report-pdf');
+
+                downloadCsvBtn.addEventListener('click', () => downloadSingleReport(report, 'csv'));
+                downloadPdfBtn.addEventListener('click', () => downloadSingleReport(report, 'pdf'));
+            };
+
+            const hideReportDetailsModal = () => {
+                reportModal.classList.add('hidden');
+            };
+
+            reportModalCloseBtn.addEventListener('click', hideReportDetailsModal);
+            reportModal.addEventListener('click', (e) => {
+                if (e.target === reportModal) {
+                    hideReportDetailsModal();
+                }
+            });
+
+            // --- Helper: Get today's date in YYYY-MM-DD ---
+            const getTodayDate = () => new Date().toISOString().split('T')[0];
+
+            // --- Data Management ---
+
+            // Load Company Name
+            const loadCompanyName = () => {
+                companyName = localStorage.getItem(COMPANY_STORAGE_KEY) || '';
+                companyNameInput.value = companyName;
+            };
+
+            // Save Company Name
+            const saveCompanyName = () => {
+                companyName = companyNameInput.value.trim();
+                localStorage.setItem(COMPANY_STORAGE_KEY, companyName);
+            };
+            companyNameInput.addEventListener('input', saveCompanyName);
+
+            // Sort bills by date (newest first)
+            const sortBills = () => {
+                bills.sort((a, b) => {
+                    const dateA = new Date(a.day);
+                    const dateB = new Date(b.day);
+                    if (dateA.getTime() !== dateB.getTime()) {
+                        return dateB - dateA; // Sort by date descending
+                    }
+                    // If dates are same, sort by time ascending (if available)
+                    if (a.time && b.time) {
+                        return a.time.localeCompare(b.time);
+                    }
+                    return a.time ? 1 : (b.time ? -1 : 0); // Put entries without time last
+                });
+            };
+
+            // Save bills to localStorage
+            const saveBills = () => {
+                localStorage.setItem(BILLS_STORAGE_KEY, JSON.stringify(bills));
+            };
+
+            // Update total amount display
+            const updateTotal = () => {
+                const total = bills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
+                totalAmountCell.textContent = total.toFixed(2);
+            };
+
+            // Main function to clear, sort, and re-render all bills
+            const renderBills = () => {
+                tableBody.innerHTML = ''; // Clear table
+                sortBills();
+                bills.forEach(bill => addBillToTable(bill));
+                updateTotal();
+                saveBills();
+            };
+
+            // Load bills from localStorage
+            const loadBills = () => {
+                const storedBills = localStorage.getItem(BILLS_STORAGE_KEY);
+                if (storedBills) {
+                    try {
+                        bills = JSON.parse(storedBills);
+                        renderBills();
+                    } catch (e) {
+                        console.error("Failed to parse stored bills:", e);
+                        showModal("Load Error", "Could not load previously saved data.");
+                        bills = [];
+                    }
+                }
+            };
+
+            // Load Finalized Reports
+            const loadFinalizedReports = () => {
+                const storedReports = localStorage.getItem(REPORTS_STORAGE_KEY);
+                if (storedReports) {
+                    try {
+                        reports = JSON.parse(storedReports);
+                        // Ensure reports are sorted by date, newest first
+                        reports.sort((a, b) => new Date(b.day) - new Date(a.day));
+                    } catch (e) {
+                        console.error("Failed to parse finalized reports:", e);
+                        reports = [];
+                    }
+                }
+            };
+
+            // Save Finalized Reports
+            const saveFinalizedReports = () => {
+                localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(reports));
+            };
+
+            // Render Finalized Reports List
+            const renderFinalizedReportsList = () => {
+                finalizedReportsList.innerHTML = ''; // Clear list
+                if (reports.length === 0) {
+                    // Re-append the message if the list is empty
+                    finalizedReportsList.appendChild(noReportsMessage);
+                    return;
+                }
+
+                reports.forEach(report => {
+                    const item = document.createElement('div');
+                    item.className = "flex justify-between items-center py-3";
+                    item.innerHTML = `
+                        <div>
+                            <p class="font-medium text-gray-800">${report.day}</p>
+                            <p class="text-sm text-gray-500">Total: ${parseFloat(report.total).toFixed(2)} Tk. (${report.bills.length} entries)</p>
+                        </div>
+                        <div class="space-x-2 flex">
+                            <button class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-3 rounded-md view-report-btn" data-day="${report.day}">
+                                View
+                            </button>
+                            <button class="text-sm bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-1 px-3 rounded-md edit-report-btn" data-day="${report.day}">
+                                Edit
+                            </button>
+                            <button class="text-sm bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded-md delete-report-btn" data-day="${report.day}">
+                                Delete
+                            </button>
+                        </div>
+                    `;
+                    finalizedReportsList.appendChild(item);
+                });
+            };
+
+            // --- Finalized Report Action Handlers ---
+
+            const handleDeleteReport = (day) => {
+                const report = reports.find(r => r.day === day);
+                if (!report) return;
+
+                const message = `
+                    Are you sure you want to PERMANENTLY delete the finalized report for ${day}?
+                    \n\nReport Details:
+                    \nTotal Amount: ${parseFloat(report.total).toFixed(2)} Tk.
+                    \nNumber of Entries: ${report.bills.length}
+                    \n\nThis action cannot be undone.
+                `;
+
+                showConfirmModal(
+                    "Delete Report",
+                    message,
+                    'warning',
+                    () => {
+                        reports = reports.filter(r => r.day !== day);
+                        saveFinalizedReports();
+                        renderFinalizedReportsList();
+                        showModal("Success", `Report for ${day} deleted successfully.`, 'success');
+                    }
+                );
+            };
+
+            const handleEditReport = (day) => {
+                const reportToEdit = reports.find(r => r.day === day);
+                if (!reportToEdit) {
+                    showModal("Error", "Report not found for editing.");
+                    return;
+                }
+
+                const reportDetailsModal = document.getElementById('report-details-modal');
+                const reportModalBody = document.getElementById('report-modal-body');
+
+                // Create a modal with checkboxes for selecting entries to edit
+                reportModalBody.innerHTML = `
+                    <div class="p-4">
+                        <p class="mb-4 text-sm text-gray-600">Select the entries you want to edit:</p>
+                        <form id="edit-selection-form" class="space-y-3">
+                            <div class="flex items-center mb-2">
+                                <input type="checkbox" id="select-all" class="form-checkbox h-4 w-4 text-blue-600">
+                                <label for="select-all" class="ml-2 text-sm font-medium text-gray-700">Select All</label>
+                            </div>
+                            <div class="border rounded-lg overflow-hidden">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="w-10 px-4 py-2"></th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Time</th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Item/From</th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Category</th>
+                                            <th class="px-4 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200">
+                                        ${reportToEdit.bills.map((bill, index) => `
+                                            <tr class="hover:bg-gray-50">
+                                                <td class="px-4 py-2">
+                                                    <input type="checkbox" name="selected-bills" value="${index}" 
+                                                        class="bill-checkbox form-checkbox h-4 w-4 text-blue-600">
+                                                </td>
+                                                <td class="px-4 py-2 text-sm">${bill.time || '---'}</td>
+                                                <td class="px-4 py-2 text-sm">${bill.from || '---'}</td>
+                                                <td class="px-4 py-2 text-sm">${bill.transport}</td>
+                                                <td class="px-4 py-2 text-sm text-right">${parseFloat(bill.amount).toFixed(2)}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="flex justify-end space-x-3 mt-4">
+                                <button type="button" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md" 
+                                    onclick="document.getElementById('report-details-modal').classList.add('hidden')">
+                                    Cancel
+                                </button>
+                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">
+                                    Edit Selected
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+
+                // Show the modal
+                reportDetailsModal.classList.remove('hidden');
+
+                // Handle select all checkbox
+                const selectAllCheckbox = document.getElementById('select-all');
+                const billCheckboxes = document.querySelectorAll('.bill-checkbox');
+
+                selectAllCheckbox.addEventListener('change', (e) => {
+                    billCheckboxes.forEach(checkbox => checkbox.checked = e.target.checked);
+                });
+
+                // Track which bills are being edited
+                let editingBills = [];
+
+                // Handle form submission
+                const form = document.getElementById('edit-selection-form');
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+
+                    const selectedIndices = Array.from(document.querySelectorAll('input[name="selected-bills"]:checked'))
+                        .map(checkbox => parseInt(checkbox.value));
+
+                    if (selectedIndices.length === 0) {
+                        showModal("Warning", "Please select at least one entry to edit.");
+                        return;
+                    }
+
+                    // Get selected bills and remove them from the report
+                    editingBills = selectedIndices.map(index => ({ ...reportToEdit.bills[index] }));
+                    reportToEdit.bills = reportToEdit.bills.filter((_, index) => !selectedIndices.includes(index));
+
+                    // Update report total
+                    reportToEdit.total = reportToEdit.bills.reduce((sum, bill) => sum + parseFloat(bill.amount), 0);
+
+                    // If no bills left, remove the report
+                    if (reportToEdit.bills.length === 0) {
+                        reports = reports.filter(r => r.day !== day);
+                    }
+
+                    // Add selected bills to the main list for editing
+                    bills.push(...editingBills);
+
+                    // Save and re-render everything
+                    saveFinalizedReports();
+                    renderFinalizedReportsList();
+                    renderBills();
+
+                    // Hide the modal
+                    reportDetailsModal.classList.add('hidden');
+
+                    // Show success message with instructions
+                    showModal(
+                        "Success",
+                        `Selected entries are now available for editing in the main table. After editing, use "Finalize & Save Day's Report" to add them back to the report.`,
+                        'success'
+                    );
+                });
+            };
+
+            // Add event listener for all buttons on finalized reports list
+            finalizedReportsList.addEventListener('click', (e) => {
+                const target = e.target;
+                const day = target.dataset.day;
+
+                if (!day) return;
+
+                if (target.classList.contains('view-report-btn')) {
+                    showReportDetailsModal(day);
+                } else if (target.classList.contains('delete-report-btn')) {
+                    handleDeleteReport(day);
+                } else if (target.classList.contains('edit-report-btn')) {
+                    handleEditReport(day);
+                }
+            });
+
+            // Edit bill modal elements
+            const editBillModal = document.getElementById('edit-bill-modal');
+            const editBillForm = document.getElementById('edit-bill-form');
+            const editBillId = document.getElementById('edit-bill-id');
+            const editDay = document.getElementById('edit-day');
+            const editTime = document.getElementById('edit-time');
+            const editFrom = document.getElementById('edit-from');
+            const editTo = document.getElementById('edit-to');
+            const editTransport = document.getElementById('edit-transport');
+            const editAmount = document.getElementById('edit-amount');
+            const editModalCloseBtn = document.getElementById('edit-modal-close-btn');
+            const editBillCancelBtn = document.getElementById('edit-bill-cancel');
+
+            // Show edit bill modal
+            const showEditBillModal = (bill) => {
+                editBillId.value = bill.id;
+                editDay.value = bill.day;
+                editTime.value = bill.time;
+                editFrom.value = bill.from;
+                editTo.value = bill.to;
+                editTransport.value = bill.transport;
+                editAmount.value = parseFloat(bill.amount).toFixed(2);
+
+                editBillModal.classList.remove('hidden');
+            };
+
+            // Hide edit bill modal
+            const hideEditBillModal = () => {
+                editBillModal.classList.add('hidden');
+                editBillForm.reset();
+            };
+
+            // Handle edit bill form submission
+            editBillForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const billIndex = bills.findIndex(b => b.id === editBillId.value);
+                if (billIndex === -1) return;
+
+                const updatedAmount = parseFloat(editAmount.value);
+                if (isNaN(updatedAmount) || updatedAmount < 0) {
+                    showModal("Invalid Input", "Please enter a valid amount.");
+                    return;
+                }
+
+                // Update bill object
+                bills[billIndex] = {
+                    id: editBillId.value,
+                    day: editDay.value,
+                    time: editTime.value || '',
+                    from: editFrom.value.trim(),
+                    to: editTo.value.trim(),
+                    transport: editTransport.value.trim(),
+                    amount: updatedAmount
+                };
+
+                hideEditBillModal();
+                renderBills();
+                showModal("Success", "Bill entry updated successfully.", 'success');
+            });
+
+            // Edit modal close and cancel handlers
+            editModalCloseBtn.addEventListener('click', hideEditBillModal);
+            editBillCancelBtn.addEventListener('click', hideEditBillModal);
+            editBillModal.addEventListener('click', (e) => {
+                if (e.target === editBillModal) {
+                    hideEditBillModal();
+                }
+            });
+
+            // Add a bill object to the table DOM
+            const addBillToTable = (bill) => {
+                const newRow = document.createElement('tr');
+                newRow.classList.add('hover:bg-gray-50');
+                newRow.setAttribute('data-id', bill.id);
+                newRow.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${bill.day}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${bill.time || '---'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${bill.from || '---'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${bill.to || '---'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${bill.transport}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">${parseFloat(bill.amount).toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
+                        <button class="text-blue-600 hover:text-blue-900 edit-btn">Edit</button>
+                        <button class="text-red-600 hover:text-red-900 remove-btn">Remove</button>
+                    </td>
+                `;
+                tableBody.appendChild(newRow);
+            };
+
+            // --- Form and Action Handlers (Unchanged) ---
+
+            // Handle new bill form submission
+            billForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const amount = parseFloat(amountInput.value);
+                if (isNaN(amount) || amount < 0) {
+                    showModal("Invalid Input", "Please enter a valid amount.");
+                    return;
+                }
+                if (!dayInput.value) {
+                    showModal("Invalid Input", "Please select a date.");
+                    return;
+                }
+                if (!transportInput.value.trim()) {
+                    showModal("Invalid Input", "Please enter a category (e.g., Bus, Food).");
+                    return;
+                }
+
+                const newBill = {
+                    id: Date.now().toString(),
+                    day: dayInput.value,
+                    time: timeInput.value || '', // Save empty string if no time
+                    from: fromInput.value.trim(),
+                    to: toInput.value.trim(),
+                    transport: transportInput.value.trim(),
+                    amount: amount
+                };
+
+                bills.push(newBill);
+                renderBills(); // Sort, render, save
+
+                billForm.reset();
+                // Set date back to today after reset
+                dayInput.value = getTodayDate();
+            });
+
+            // Handle table actions (Edit, Save, Remove) using event delegation
+            tableBody.addEventListener('click', (e) => {
+                const row = e.target.closest('tr');
+                if (!row) return;
+
+                const rowId = row.dataset.id;
+                const billIndex = bills.findIndex(b => b.id === rowId);
+
+                // --- REMOVE ---
+                if (e.target.classList.contains('remove-btn')) {
+                    const bill = bills[billIndex];
+                    if (!bill) return;
+
+                    const message = `
+                        Are you sure you want to remove this entry?
+                        \n\nEntry Details:
+                        \nDate: ${bill.day}
+                        \nTime: ${bill.time || '---'}
+                        \nFrom: ${bill.from || '---'}
+                        \nTo: ${bill.to || '---'}
+                        \nCategory: ${bill.transport}
+                        \nAmount: ${parseFloat(bill.amount).toFixed(2)} Tk.
+                        \n\nThis action cannot be undone.
+                    `;
+
+                    const modalContent = document.createElement('div');
+                    modalContent.innerHTML = message.split('\n').map(line =>
+                        `<p class="mb-1">${line.trim()}</p>`
+                    ).join('');
+
+                    showConfirmModal(
+                        "Remove Entry",
+                        modalContent.innerHTML,
+                        'warning',
+                        () => {
+                            bills.splice(billIndex, 1);
+                            saveBills();
+                            renderBills();
+                            showModal("Success", "Entry removed successfully.", 'success');
+                        }
+                    );
+                    return; // Stop further execution
+                }
+
+                // --- EDIT ---
+                if (e.target.classList.contains('edit-btn')) {
+                    const bill = bills.find(b => b.id === rowId);
+                    if (bill) {
+                        showEditBillModal(bill);
+                    }
+                }
+            });
+
+            // --- PDF and CSV Download Functions (Unchanged) ---
+            const { jsPDF } = window.jspdf;
+
+            const getFormattedFilename = (ext, dateStr) => {
+                const date = dateStr || getTodayDate();
+                const compName = companyName.trim() || 'Report';
+                return `${compName}_${date}.${ext}`;
+            };
+
+            // Enhanced PDF Function with optional subtitle
+            const downloadPdf = (dataToExport, filename, subtitle = '') => {
+                const doc = new jsPDF();
+                const tableHead = [['Day', 'Time', 'Item/From', 'Vendor/To', 'Category', 'Amount (Tk.)']];
+                const tableBodyData = dataToExport.map(bill => [
+                    bill.day,
+                    bill.time || '---',
+                    bill.from || '---',
+                    bill.to || '---',
+                    bill.transport,
+                    parseFloat(bill.amount).toFixed(2)
+                ]);
+
+                const total = dataToExport.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
+
+                // Title
+                doc.setFontSize(18);
+                doc.text(`${companyName} - Bill Report`, 14, 22);
+
+                // Subtitle (if provided)
+                if (subtitle) {
+                    doc.setFontSize(12);
+                    doc.text(subtitle, 14, 30);
+                }
+
+                doc.autoTable({
+                    head: tableHead,
+                    body: tableBodyData,
+                    startY: subtitle ? 35 : 30,
+                    headStyles: { fillColor: [37, 99, 235] }, // Blue-600
+                    foot: [
+                        ['', '', '', '', 'Total', total.toFixed(2)]
+                    ],
+                    footStyles: {
+                        fillColor: [229, 231, 235], // gray-200
+                        textColor: [0, 0, 0],
+                        fontStyle: 'bold'
+                    }
+                });
+
+                doc.save(filename);
+            };
+
+            // Function to handle single report downloads
+            const downloadSingleReport = (report, format) => {
+                const filename = getFormattedFilename(format, report.day);
+                const subtitle = `Date: ${report.day} | Total: ${parseFloat(report.total).toFixed(2)} Tk.`;
+
+                if (format === 'pdf') {
+                    downloadPdf(report.bills, filename, subtitle);
+                } else if (format === 'csv') {
+                    downloadCsv(report.bills, filename);
+                }
+
+                // Show success message
+                showModal(
+                    "Success",
+                    `Report for ${report.day} has been downloaded as ${format.toUpperCase()}.`,
+                    'success'
+                );
+            };
+
+            // Generic CSV Function
+            const downloadCsv = (dataToExport, filename) => {
+                let csvContent = "data:text/csv;charset=utf-8,";
+                csvContent += "Day,Time,Item/From,Vendor/To,Category,Amount\n"; // Header row
+
+                dataToExport.forEach(bill => {
+                    const row = [
+                        `"${bill.day}"`,
+                        `"${bill.time || ''}"`,
+                        `"${bill.from.replace(/"/g, '""') || ''}"`,
+                        `"${bill.to.replace(/"/g, '""') || ''}"`,
+                        `"${bill.transport.replace(/"/g, '""')}"`,
+                        parseFloat(bill.amount).toFixed(2)
+                    ].join(",");
+                    csvContent += row + "\n";
+                });
+
+                const total = dataToExport.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
+                csvContent += `\n,,,,Total,${total.toFixed(2)}\n`;
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", filename);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            // "Download All" Buttons
+            downloadPdfBtn.addEventListener('click', () => {
+                if (bills.length === 0) return showModal("Error", "No bills to download.");
+                downloadPdf(bills, getFormattedFilename('pdf', 'All_Days'));
+            });
+
+            downloadCsvBtn.addEventListener('click', () => {
+                if (bills.length === 0) return showModal("Error", "No bills to download.");
+                downloadCsv(bills, getFormattedFilename('csv', 'All_Days'));
+            });
+
+            // "Finalize Day's Report" Button
+            finalizeDayBtn.addEventListener('click', () => {
+                const today = dayInput.value || getTodayDate(); // Use selected date or today
+                const todayBills = bills.filter(bill => bill.day === today);
+
+                if (todayBills.length === 0) {
+                    showModal("No Data", `There are no bill entries for ${today} to finalize.`);
+                    return;
+                }
+
+                // Find existing report for this day
+                let existingReport = reports.find(r => r.day === today);
+
+                if (existingReport) {
+                    // Add new bills to existing report
+                    existingReport.bills.push(...todayBills);
+                    existingReport.total = existingReport.bills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
+                    existingReport.companyName = companyName.trim();
+                } else {
+                    // Create new report
+                    const total = todayBills.reduce((sum, bill) => sum + parseFloat(bill.amount || 0), 0);
+                    const newReport = {
+                        day: today,
+                        companyName: companyName.trim(),
+                        bills: todayBills,
+                        total: total
+                    };
+                    reports.unshift(newReport);
+                }
+
+                // Sort reports by date
+                reports.sort((a, b) => new Date(b.day) - new Date(a.day));
+
+                // Ensure reports array is sorted (in case of adding an old date)
+                reports.sort((a, b) => new Date(b.day) - new Date(a.day));
+
+                // Remove the finalized bills from the current bills array
+                bills = bills.filter(bill => bill.day !== today);
+
+                // Save and re-render everything
+                saveBills();
+                renderBills();
+                saveFinalizedReports();
+                renderFinalizedReportsList();
+
+                const name = companyName.trim() || 'your company';
+                showModal("Report Saved", `Report for ${today} from ${name} has been successfully saved. You can view it in the Finalized Daily Reports list below.`, false);
+            });
+
+            // --- Initialization ---
+            loadCompanyName();
+            loadBills();
+            loadFinalizedReports();
+            renderFinalizedReportsList();
+            dayInput.value = getTodayDate();
+        });
+    </script>
+
+</body>
+
+</html>
